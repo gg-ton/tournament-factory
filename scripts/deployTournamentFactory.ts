@@ -17,6 +17,4 @@ export async function run(provider: NetworkProvider) {
     );
 
     await provider.waitForDeploy(tournamentFactory.address);
-
-    // run methods on `tournamentFactory`
 }

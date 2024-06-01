@@ -1,91 +1,69 @@
 import "@stdlib/deploy";
 import "@stdlib/ownable";
+import "@stdlib/stoppable";
 
-struct GameInfo {
-    name: String;
-    genre: String;
-    description: String?;
-}
+import "./tournament.tact";
 
-struct TournamentInfo {
-    id: Int as uint64;
-    game: GameInfo;
-    prizePool: Int;
-}
-
-struct Tournament {
-    participants: map<Address, Bool>;
-    participantCount: Int;
-    info: TournamentInfo;
-}
-
-message CreateTournament {
-    queryId: Int as uint64;
+message CreateTournamentRequest {
     owner: Address;
-    tournamentInfo: TournamentInfo;
-}
-
-message Add {
-    queryId: Int as uint64;
-    amount: Int as uint32;
+    prizePool: Int as coins;
 }
 
 contract TournamentFactory with Deployable {
-    owner: Address;
-    
-    tournaments: map<Int as uint64, Tournament>; // id -> tournament
+    bank: Address;
+    bankAmount: Int as coins;
+
+    tournaments: map<Address, Bool>; // tournament address contract -> is finished
     tournamentsCount: Int;
 
-    counter: Int;
-
     init() {
+        self.bank = newAddress(0, 0);
+        self.bankAmount = 0;
         self.tournaments = emptyMap();
         self.tournamentsCount = 0;
-        self.counter = 0;
-        self.owner = newAddress(0, 0);
     }
 
-    receive(msg: Add) {
-        self.counter += msg.amount;
-    }
+    receive(msg: CreateTournamentRequest) {   
+        let init: StateInit = initOf Tournament(msg.owner, msg.prizePool);
+        let tournamentAddress: Address = contractAddress(init);
 
-    receive(msg: CreateTournament) {
-        let existedTournament: Tournament? = self.tournaments.get(msg.tournamentInfo.id);
-        require(existedTournament != null, "Tornament already exists");
+        send(SendParameters{
+            to: tournamentAddress,
+            body: CreateTournament{
+                tournamentAddress: tournamentAddress,
+            }.toCell(),
+            value: ton("0.1"), // pay for message and potential deployment
+            mode: SendRemainingValue + SendIgnoreErrors,
+            code: init.code,  // if tournament is not deployed, also deploy it
+            data: init.data,
+        });
 
-        self.owner = sender();
-        
-        let newTournament: Tournament = Tournament{
-            participants: emptyMap(),
-            participantCount: 0,
-            info: TournamentInfo{
-                id: msg.tournamentInfo.id,
-                prizePool: msg.tournamentInfo.prizePool,
-                game: GameInfo{
-                    name: msg.tournamentInfo.game.name,
-                    genre: msg.tournamentInfo.game.genre,
-                    description: msg.tournamentInfo.game.description,
-                },
-            },
-        };
-
-        self.tournaments.set(msg.tournamentInfo.id, newTournament);
+        // TODO: Update tournaments state at the receive(msg: CreateTournamentResponse)
+        self.tournaments.set(tournamentAddress, true);
         self.tournamentsCount += 1;
     }
+
+    receive(msg: CreateTournamentResponse) {
+        let isTournamentActive: Bool? = self.tournaments.get(msg.tournamentAddress);
+        if (isTournamentActive == null) {
+            self.tournaments.set(msg.tournamentAddress, true);
+            self.tournamentsCount += 1;
+        }
+    }
+
+    get fun bank(): Address {
+        return self.bank;
+    }
+
+    get fun bankAmount(): Int {
+        return self.bankAmount;
+    }
     
-    get fun tournaments(): map<Int as uint64, Tournament> {
+    get fun tournaments(): map<Address, Bool> {
         return self.tournaments;
     }
 
     get fun tournamentsCount(): Int {
         return self.tournamentsCount;
-    }
-
-    get fun owner(): Address {
-        return self.owner;
-    }
-
-    get fun counter(): Int {
-        return self.counter;
     }
 }
