@@ -48,8 +48,8 @@ contract Tournament {
     }
 
     receive(msg: JoinTournament) {
-        let isParticipantActive: Bool = self.participants.get(msg.participant);
-        if (isParticipantActive == false) {
+        let isParticipantActive: Bool? = self.participants.get(msg.participant);
+        if (isParticipantActive == false || isParticipantActive == null) {
             self.participants.set(msg.participant, true);
             self.participantCount += 1;
         }
