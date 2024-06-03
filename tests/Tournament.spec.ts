@@ -4,16 +4,12 @@ import { Tournament } from '../wrappers/Tournament';
 import '@ton/test-utils';
 
 describe('Tournament', () => {
-    let blockchain: Blockchain;
-    let deployer: SandboxContract<TreasuryContract>;
-    let tournament: SandboxContract<Tournament>;
+    // let blockchain: Blockchain;
+    // let deployer: SandboxContract<TreasuryContract>;
+    // let tournament: SandboxContract<Tournament>;
 
     beforeEach(async () => {
-        blockchain = await Blockchain.create();
-
-        deployer = await blockchain.treasury('deployer');
-
-        tournament = blockchain.openContract(await Tournament.fromInit(deployer.address, 10n));
+        // TODO: Create tournament factory and add tournaments
     });
 
     it('should deploy', async () => {

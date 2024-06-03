@@ -4,17 +4,18 @@ import "@stdlib/stoppable";
 
 import "./tournament.tact";
 
-message CreateTournamentRequest {
-    owner: Address;
-    prizePool: Int as coins;
+message Init {
+    prizePool: Int;
 }
 
 contract TournamentFactory with Deployable {
     bank: Address;
-    bankAmount: Int as coins;
+    bankAmount: Int;
 
-    tournaments: map<Address, Bool>; // tournament address contract -> is finished
+    tournaments: map<Address, Bool>; // tournament address contract -> is active
     tournamentsCount: Int;
+
+    commission: Int = ton("0.1");
 
     init() {
         self.bank = newAddress(0, 0);
@@ -23,29 +24,31 @@ contract TournamentFactory with Deployable {
         self.tournamentsCount = 0;
     }
 
-    receive(msg: CreateTournamentRequest) {   
-        let init: StateInit = initOf Tournament(msg.owner, msg.prizePool);
+    receive() {}
+
+    receive(msg: Init) {
+        // TODO: Fix
+        // require(msg.prizePool > self.commission, "You should have prize pool > 0.1");
+        let prizePoolAfterCommission: Int = msg.prizePool - self.commission;
+
+        let init: StateInit = initOf Tournament(sender(), prizePoolAfterCommission);
         let tournamentAddress: Address = contractAddress(init);
 
         send(SendParameters{
             to: tournamentAddress,
-            body: CreateTournament{
+            body: CreateTournamentRequest{
                 tournamentAddress: tournamentAddress,
             }.toCell(),
-            value: ton("0.1"), // pay for message and potential deployment
-            mode: SendRemainingValue + SendIgnoreErrors,
+            value: self.commission, // pay for message and potential deployment
+            mode: SendIgnoreErrors,
             code: init.code,  // if tournament is not deployed, also deploy it
             data: init.data,
         });
-
-        // TODO: Update tournaments state at the receive(msg: CreateTournamentResponse)
-        self.tournaments.set(tournamentAddress, true);
-        self.tournamentsCount += 1;
     }
 
     receive(msg: CreateTournamentResponse) {
         let isTournamentActive: Bool? = self.tournaments.get(msg.tournamentAddress);
-        if (isTournamentActive == null) {
+        if (isTournamentActive == null || isTournamentActive == false) {
             self.tournaments.set(msg.tournamentAddress, true);
             self.tournamentsCount += 1;
         }

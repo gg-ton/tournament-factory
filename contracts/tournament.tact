@@ -10,7 +10,7 @@ struct TournamentInfo {
     gameInfo: GameInfo;
 }
 
-message CreateTournament {
+message CreateTournamentRequest {
     tournamentAddress: Address;
 }
 
@@ -25,13 +25,13 @@ message JoinTournament {
 contract Tournament {
     owner: Address;
 
-    prizePool: Int as coins;
+    prizePool: Int;
 
     participants: map<Address, Bool>;
     participantCount: Int as uint16;
 
     sponsorFunds: map<Address, Int>;
-    sponsorFundsAmount: Int as coins;
+    sponsorFundsAmount: Int;
 
     init(owner: Address, prizePool: Int) {
         self.owner = owner;
@@ -43,13 +43,13 @@ contract Tournament {
         self.sponsorFundsAmount = 0;
     }
 
-    receive(msg: CreateTournament) {
+    receive(msg: CreateTournamentRequest) {
         self.reply(CreateTournamentResponse{tournamentAddress: msg.tournamentAddress}.toCell());
     }
 
     receive(msg: JoinTournament) {
         let isParticipantActive: Bool? = self.participants.get(msg.participant);
-        if (isParticipantActive == false || isParticipantActive == null) {
+        if (isParticipantActive == null || isParticipantActive == false) {
             self.participants.set(msg.participant, true);
             self.participantCount += 1;
         }

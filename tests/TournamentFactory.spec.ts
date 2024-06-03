@@ -1,21 +1,22 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { toNano } from '@ton/core';
 import { TournamentFactory } from '../wrappers/TournamentFactory';
+import { Tournament } from '../wrappers/Tournament';
 import '@ton/test-utils';
 
 describe('TournamentFactory', () => {
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
-    let tournamentFactory: SandboxContract<TournamentFactory>;
+    let tournamentFactoryContract: SandboxContract<TournamentFactory>;
 
     beforeEach(async () => {
         blockchain = await Blockchain.create();
 
         deployer = await blockchain.treasury('deployer');
 
-        tournamentFactory = blockchain.openContract(await TournamentFactory.fromInit());
+        tournamentFactoryContract = blockchain.openContract(await TournamentFactory.fromInit());
 
-        const deployResultTournamentFactory = await tournamentFactory.send(
+        const deployResultTournamentFactory = await tournamentFactoryContract.send(
             deployer.getSender(),
             {
                 value: toNano('0.05'),
@@ -28,7 +29,7 @@ describe('TournamentFactory', () => {
 
         expect(deployResultTournamentFactory.transactions).toHaveTransaction({
             from: deployer.address,
-            to: tournamentFactory.address,
+            to: tournamentFactoryContract.address,
             deploy: true,
             success: true,
         });
@@ -40,37 +41,34 @@ describe('TournamentFactory', () => {
     });
 
     it('should create tournament', async () => {
-        const owner = await blockchain.treasury('owner');
-
-        const tournamentsCountBefore = await tournamentFactory.getTournamentsCount();
-        const tournamentsBefore = await tournamentFactory.getTournaments();
+        const tournamentsCountBefore = await tournamentFactoryContract.getTournamentsCount();
+        const tournamentsBefore = await tournamentFactoryContract.getTournaments();
 
         console.log('tournaments count', tournamentsCountBefore);
         console.log('tournaments before creating', tournamentsBefore);
 
-        const tournamentResult = await tournamentFactory.send(
-            owner.getSender(),
+        const tournamentFactoryResult = await tournamentFactoryContract.send(
+            deployer.getSender(),
             {
                 value: toNano('0.65'),
             },
             {
-                $$type: "CreateTournamentRequest",
-                owner: owner.address,
+                $$type: "Init",
                 prizePool: 10n,
             },
         );
 
-        expect(tournamentResult.transactions).toHaveTransaction({
-            from:    owner.address,
-            to:      tournamentFactory.address,
+        expect(tournamentFactoryResult.transactions).toHaveTransaction({
+            from:    deployer.address,
+            to:      tournamentFactoryContract.address,
             success: true,
         });
 
-        const tournamentAfter = await tournamentFactory.getTournaments();
-        const tournamentsCountAfter = await tournamentFactory.getTournamentsCount();
+        const tournamentsCountAfter = await tournamentFactoryContract.getTournamentsCount();
+        const tournamentsAfter = await tournamentFactoryContract.getTournaments()
 
         console.log('tournaments count', tournamentsCountAfter);
-        console.log('tournaments after creating', tournamentAfter);
+        console.log('tournaments', tournamentsAfter);
 
         expect(tournamentsCountAfter).toBe(tournamentsCountBefore + 1n);
     })
