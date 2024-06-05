@@ -9,38 +9,39 @@ message Init {
 }
 
 contract TournamentFactory with Deployable {
+    const minTonForStorage: Int = ton("0.01"); // enough for 1 KB of storage for 2.5 years
+    const commission: Int = ton("0.1");
+
     bank: Address;
-    bankAmount: Int;
 
     tournaments: map<Address, Bool>; // tournament address contract -> is active
     tournamentsCount: Int;
+    activeTournamentCount: Int;
 
-    commission: Int = ton("0.1");
+    init(bank: Address) {
+        self.bank = bank;
 
-    init() {
-        self.bank = newAddress(0, 0);
-        self.bankAmount = 0;
         self.tournaments = emptyMap();
         self.tournamentsCount = 0;
+        self.activeTournamentCount = 0;
     }
 
     receive() {}
 
     receive(msg: Init) {
-        // TODO: Fix
-        // require(msg.prizePool > self.commission, "You should have prize pool > 0.1");
-        let prizePoolAfterCommission: Int = msg.prizePool - self.commission;
+        require(msg.prizePool > self.commission, "You should have prize pool > 0.1");
 
-        let init: StateInit = initOf Tournament(sender(), prizePoolAfterCommission);
+        let init: StateInit = initOf Tournament(sender());
         let tournamentAddress: Address = contractAddress(init);
+
+        let prizePoolAfterCommission: Int = msg.prizePool - self.commission - self.minTonForStorage;
 
         send(SendParameters{
             to: tournamentAddress,
             body: CreateTournamentRequest{
                 tournamentAddress: tournamentAddress,
             }.toCell(),
-            value: self.commission, // pay for message and potential deployment
-            mode: SendIgnoreErrors,
+            value: prizePoolAfterCommission, // pay for message and potential deployment
             code: init.code,  // if tournament is not deployed, also deploy it
             data: init.data,
         });
@@ -48,18 +49,29 @@ contract TournamentFactory with Deployable {
 
     receive(msg: CreateTournamentResponse) {
         let isTournamentActive: Bool? = self.tournaments.get(msg.tournamentAddress);
-        if (isTournamentActive == null || isTournamentActive == false) {
-            self.tournaments.set(msg.tournamentAddress, true);
+        if (isTournamentActive == null) {
+            self.tournaments.set(msg.tournamentAddress, false);
             self.tournamentsCount += 1;
         }
+
+        send(SendParameters{
+            to: self.bank,
+            bounce: true,
+            value: self.commission,
+            mode: SendRemainingValue + SendIgnoreErrors
+        });
     }
+
+    // receive(msg: StartTournamentResponse) {
+    //     let isTournamentActive: Bool? = self.tournaments.get(msg.tournamentAddress);
+    //     if (isTournamentActive != null || isTournamentActive == false) {
+    //         self.tournaments.set(msg.tournamentAddress, true);
+    //         self.activeTournamentCount += 1;
+    //     }
+    // }
 
     get fun bank(): Address {
         return self.bank;
-    }
-
-    get fun bankAmount(): Int {
-        return self.bankAmount;
     }
     
     get fun tournaments(): map<Address, Bool> {
@@ -68,5 +80,9 @@ contract TournamentFactory with Deployable {
 
     get fun tournamentsCount(): Int {
         return self.tournamentsCount;
+    }
+
+    get fun activeTournamentCount(): Int {
+        return self.activeTournamentCount;
     }
 }

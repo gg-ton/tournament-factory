@@ -1,7 +1,6 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { toNano } from '@ton/core';
 import { TournamentFactory } from '../wrappers/TournamentFactory';
-import { Tournament } from '../wrappers/Tournament';
 import '@ton/test-utils';
 
 describe('TournamentFactory', () => {
@@ -14,12 +13,12 @@ describe('TournamentFactory', () => {
 
         deployer = await blockchain.treasury('deployer');
 
-        tournamentFactoryContract = blockchain.openContract(await TournamentFactory.fromInit());
+        tournamentFactoryContract = blockchain.openContract(await TournamentFactory.fromInit(deployer.address));
 
         const deployResultTournamentFactory = await tournamentFactoryContract.send(
             deployer.getSender(),
             {
-                value: toNano('0.05'),
+                value: toNano('0.55'),
             },
             {
                 $$type: 'Deploy',
@@ -50,11 +49,11 @@ describe('TournamentFactory', () => {
         const tournamentFactoryResult = await tournamentFactoryContract.send(
             deployer.getSender(),
             {
-                value: toNano('0.65'),
+                value: toNano('1.65'),
             },
             {
                 $$type: "Init",
-                prizePool: 10n,
+                prizePool: toNano('1.0'),
             },
         );
 
