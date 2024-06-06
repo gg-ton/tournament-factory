@@ -7,8 +7,6 @@ struct GameInfo {
     genre: String;
 }
 
-// если матч финальный
-
 contract Match with Deployable {
     tournamentSeqno: Int as uint64;
 

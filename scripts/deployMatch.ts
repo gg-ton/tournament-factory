@@ -3,7 +3,11 @@ import { Match } from '../wrappers/Match';
 import { NetworkProvider } from '@ton/blueprint';
 
 export async function run(provider: NetworkProvider) {
-    const match = provider.open(await Match.fromInit());
+    const match = provider.open(await Match.fromInit(0n, {
+        $$type: "GameInfo",
+        name: "dota 2",
+        genre: "moba",
+    }));
 
     await match.send(
         provider.sender(),

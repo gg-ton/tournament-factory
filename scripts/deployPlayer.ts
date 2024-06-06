@@ -1,9 +1,9 @@
-import { toNano } from '@ton/core';
+import { Address, toNano } from '@ton/core';
 import { Player } from '../wrappers/Player';
 import { NetworkProvider } from '@ton/blueprint';
 
 export async function run(provider: NetworkProvider) {
-    const player = provider.open(await Player.fromInit());
+    const player = provider.open(await Player.fromInit(Address.parse("kQD_KopE-zqVkrHoA9A-CGt81fJcNQsGYW9MiYP8xmfIT5Yw")));
 
     await player.send(
         provider.sender(),

@@ -25,8 +25,7 @@ contract Tournament with Deployable, Ownable {
     seqno: Int as uint64;
 
     prizePool: Int as coins;
-    // TODO: remove address
-    prizePoolAddress: Address = address("EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N");
+    prizePoolAddress: Address = address("kQD_KopE-zqVkrHoA9A-CGt81fJcNQsGYW9MiYP8xmfIT5Yw");
 
     participants: map<Address, Bool>; // participant address -> is active
     participantCount: Int as uint16;

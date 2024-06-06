@@ -7,7 +7,6 @@ struct TeamInfo {
     name: String;
     owner: Address;
     seqno: Int as uint64;
-    maxParticipantCount: Int as uint32;
 }
 
 message VictoryRequest {
@@ -31,13 +30,11 @@ contract Team with Deployable {
 
     participants: map<Address, Bool>;
     participantCount: Int as uint32;
-    maxParticipantCount: Int as uint32;
 
     init(teamInfo: TeamInfo) {
         self.seqno = teamInfo.seqno;
         self.owner = teamInfo.owner;
         self.name = teamInfo.name;
-        self.maxParticipantCount = teamInfo.maxParticipantCount;
 
         self.victoryCount = 0;
         self.participants = emptyMap();
@@ -59,7 +56,6 @@ contract Team with Deployable {
             name: self.name,
             owner: self.owner,
             seqno: self.seqno,
-            maxParticipantCount: self.maxParticipantCount,
         });
 
         send(SendParameters{
@@ -84,7 +80,6 @@ contract Team with Deployable {
                 name: self.name,
                 owner: self.owner,
                 seqno: self.seqno,
-                maxParticipantCount: self.maxParticipantCount,
             }
         }.toCell());
     }
@@ -95,10 +90,6 @@ contract Team with Deployable {
 
     get fun participantCount(): Int {
         return self.participantCount;
-    }
-
-    get fun maxParticipantCount(): Int {
-        return self.maxParticipantCount;
     }
 
     get fun seqno(): Int {

@@ -22,7 +22,6 @@ describe('Team', () => {
             name: "test team",
             owner: teamOwner.address,
             seqno: 0n,
-            maxParticipantCount: 10n
         }));
 
         const teamDeployResult = await teamContract.send(
