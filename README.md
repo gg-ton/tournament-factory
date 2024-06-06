@@ -1,4 +1,4 @@
-# first-contract
+# Tournament constructor smart contracts
 
 ## Project structure
 
