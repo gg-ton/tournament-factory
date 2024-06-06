@@ -11,40 +11,49 @@ struct TournamentInfo {
 }
 
 message CreateTournamentRequest {
-    tournamentAddress: Address;
+    prizePool: Int;
+    maxParticipantCount: Int as uint16;
 }
 
-message CreateTournamentResponse {
-    tournamentAddress: Address;
-}
+message JoinTournamentRequest {}
 
-message StartTournamentResponse {
-    tournamentAddress: Address;
-}
+message StartTournamentRequest {}
 
 message FinishTournamentRequest {
     winner: Address;
 }
 
-contract Tournament {
+contract Tournament with Deployable {
+    const minTonForStorage: Int = ton("0.01"); // enough for 1 KB of storage for 2.5 years
+    const commission: Int = ton("0.01");
+
     owner: Address;
 
     prizePool: Int as coins;
+    // TODO: remove address
+    prizePoolAddress: Address = address("EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N");
 
-    participants: map<Address, Bool>;
+    participants: map<Address, Bool>; // participant address -> is active
     participantCount: Int as uint16;
+    maxParticipantCount: Int as uint16;
 
     sponsorFunds: map<Address, Int>;
     sponsorFundsAmount: Int as coins;
 
-    init(owner: Address) {
-        self.owner = owner;
+    isFinished: Bool;
+    isStarted: Bool;
+
+    init() {
+        self.owner = sender();
     
         self.prizePool = 0;
         self.participants = emptyMap();
         self.participantCount = 0;
+        self.maxParticipantCount = 0;
         self.sponsorFunds = emptyMap();
         self.sponsorFundsAmount = 0;
+        self.isFinished = false;
+        self.isStarted = false;
     }
 
     receive(msg: CreateTournamentRequest) {
@@ -52,72 +61,75 @@ contract Tournament {
             require(sender() == self.owner, "Only owner can create the tournament");
         } catch (e) {
             dump(e);
+            nativeThrow(34);
         }
-        self.prizePool = context().value;
-        
-        self.reply(CreateTournamentResponse{tournamentAddress: msg.tournamentAddress}.toCell());
+
+        let prizePoolAfterCommission: Int = msg.prizePool - self.commission - self.minTonForStorage;
+
+        send(SendParameters{
+            to:     self.prizePoolAddress,
+            value: prizePoolAfterCommission, // pay for message and potential deployment
+        });
+
+        self.prizePool = prizePoolAfterCommission;
+        self.maxParticipantCount = msg.maxParticipantCount;
     }
 
-    // receive("join") {
-    //     try {
-    //         require(sender() != self.owner, "Owner can't join the tournament");            
-    //     } catch (e) {
-    //         dump(e);
-    //     }
+    receive(msg: JoinTournamentRequest) {
+        try {
+            require(self.participantCount+1 <= self.maxParticipantCount, "Tournament has max participants count");
+        } catch (e) {
+            nativeThrow(34);
+        }
 
-    //     let isParticipantActive: Bool? = self.participants.get(msg.participant);
-    //     if (isParticipantActive != null || isParticipantActive == false) {
-    //         self.participants.set(msg.participant, true);
-    //         self.participantCount += 1;
-    //     }
-    // }
+        let isParticipantActive: Bool? = self.participants.get(sender());
+        if (isParticipantActive == null || isParticipantActive == false) {
+            self.participants.set(sender(), true);
+            self.participantCount += 1;
+        }
+    }
 
-    // receive("start") {
-    //     try {
-    //         require(self.participantCount > 0, "Can't start tournament without participants");
-    //         require(sender() == self.owner, "Only owner can start the tournament");            
-    //     } catch (e) {
-    //         dump(e);
-    //     }
+    receive(msg: StartTournamentRequest) {
+        try {
+            require(self.participantCount > 0, "Can't start tournament without participants");
+            require(sender() == self.owner, "Only owner can start the tournament");
+            require(self.isFinished == false, "Tournament already finished");
+            require(self.isStarted == false, "Tournament already started");
+        } catch (e) {
+            dump(e);
+            nativeThrow(34);
+        }
 
-    //     foreach (participantAddress, isParticipantActive in self.participants) {
-    //         // if participant is not active throw error
-    //         // 34 errors code: Action is invalid or not supported. Set during action phase if current action cannot be applied
-    //         nativeThrowUnless(34, isParticipantActive);
-    //     }
+        self.isStarted = true;
+    }
 
-    //     self.reply(StartTournamentResponse{tournamentAddress: msg.tournamentAddress}.toCell());
-    // }
+    receive(msg: FinishTournamentRequest) {
+        try {
+            require(sender() == self.owner, "Only owner can finish the tournament");            
+        } catch (e) {
+            dump(e);
+            nativeThrow(34);
+        }
 
-    // receive(msg: FinishTournamentRequest) {
-    //     try {
-    //         require(sender() == self.owner, "Only owner can finish the tournament");            
-    //     } catch (e) {
-    //         dump(e);
-    //     }
+        let isParticipantActive: Bool? = self.participants.get(msg.winner);
+        try {
+            require(isParticipantActive != null, "This winner doesn't exsist");
+            require(isParticipantActive == true, "Winner can't be inantive");
+        } catch (e) {
+            dump(e);
+            nativeThrow(34);
+        }
 
-    //     let isParticipantActive: Bool? = self.participants.get(msg.participant);
-    //     try {
-    //         require(isParticipantActive != null, "This winner doesn't exsist");
-    //         require(isParticipantActive == true, "Winner can't be inantive");
-    //     } catch (e) {
-    //         dump(e);
-    //     }
+        let winnerPrize: Int = self.sponsorFundsAmount + self.prizePool;
 
-    //     let winnerPrize: Int = self.sponsorFundsAmount + self.prizePool;
+        // send prize to the winner
+        send(SendParameters{
+            to: msg.winner,
+            value: winnerPrize, // pay for message and potential deployment
+        });
 
-    //     // send prize to the winner
-    //     send(SendParameters{
-    //         to: msg.winner,
-    //         body: CreateTournamentRequest{
-    //             tournamentAddress: tournamentAddress,
-    //         }.toCell(),
-    //         value: winnerPrize, // pay for message and potential deployment
-    //         mode: SendIgnoreErrors,
-    //         code: init.code,  // if tournament is not deployed, also deploy it
-    //         data: init.data,
-    //     });
-    // }
+        self.isFinished = true;
+    }
 
     get fun owner(): Address {
         return self.owner;
@@ -135,6 +147,10 @@ contract Tournament {
         return self.participantCount;
     }
 
+    get fun maxParticipantCount(): Int {
+        return self.maxParticipantCount;
+    }
+
     get fun sponsorFunds(): map<Address, Int> {
         require(self.owner == sender(), "You should to be an owner");
         return self.sponsorFunds;
@@ -143,5 +159,13 @@ contract Tournament {
     get fun sponsorFundsAmount(): Int {
         require(self.owner == sender(), "You should to be an owner");
         return self.sponsorFundsAmount;
+    }
+
+    get fun isFinished(): Bool {
+        return self.isFinished;
+    }
+
+    get fun isStarted(): Bool {
+        return self.isStarted;
     }
 }
